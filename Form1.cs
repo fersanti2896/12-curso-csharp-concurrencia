@@ -1,3 +1,4 @@
+using Concurrencia.Models;
 using System.Diagnostics;
 
 namespace Concurrencia {
@@ -6,13 +7,15 @@ namespace Concurrencia {
             InitializeComponent();
         }
 
+        HttpClient httpClient = new HttpClient();
+
         private async void button1_Click(object sender, EventArgs e) {
             pictureBox1.Visible = true;
 
             /* Durmiendo el proceso */
             //Thread.Sleep(3000); Sincrono
 
-            var sw = new Stopwatch();
+            /* var sw = new Stopwatch();
             sw.Start();
 
             var tareas = new List<Task>() {
@@ -26,8 +29,102 @@ namespace Concurrencia {
             sw.Stop();
 
             var duracion = $"El programa se ejecutó en { sw.ElapsedMilliseconds / 1000.0 } segundos.";
-            Console.WriteLine($"{ duracion }");
+            Console.WriteLine($"{ duracion }"); */
+
+            var directorioactual = AppDomain.CurrentDomain.BaseDirectory;
+            var destinoSecuencial = Path.Combine(directorioactual, @"Imagenes/secuencial");
+            var destinoParalelo = Path.Combine(directorioactual, @"Imagenes/paralelo");
+
+            prepararEjecucion(destinoParalelo, destinoSecuencial);
+
+            Console.WriteLine("Inicio");
+            var imgs = obtenerImagenes();
+
+            /* Parte Secuencial */
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
+            foreach (var img in imgs) {
+                await procesarImagen(destinoSecuencial, img);
+            }
+
+            Console.WriteLine($"Duración Secuencial: { sw.ElapsedMilliseconds / 1000.0 } segundos");
+
+            sw.Reset();
+
+            /* Parte Paralelo */
+            sw.Start();
+
+            var tareasEnumerable = imgs.Select(async img => {
+                await procesarImagen(destinoParalelo, img);
+            });
+
+            await Task.WhenAll(tareasEnumerable);
+
+            sw.Stop();
+
+            Console.WriteLine($"Duración Paralelo: { sw.ElapsedMilliseconds / 1000.0 } segundos");
             pictureBox1.Visible = false;
+        }
+
+        private async Task procesarImagen(string directorio, Imagen img) {
+            var resp = await httpClient.GetAsync(img.URL);
+            var contenido = await resp.Content.ReadAsByteArrayAsync();
+
+            Bitmap bitmap;
+
+            using (var ms = new MemoryStream(contenido)) { 
+                bitmap = new Bitmap(ms);
+            }
+
+            bitmap.RotateFlip(RotateFlipType.Rotate90FlipNone);
+            var destino = Path.Combine(directorio, img.Nombre);
+
+            bitmap.Save(destino);
+        }
+
+        private void prepararEjecucion(string destinoParalelo, string destinoSecuencial) {
+            if (!Directory.Exists(destinoParalelo)) {
+                Directory.CreateDirectory(destinoParalelo);
+            } 
+            
+            if (!Directory.Exists(destinoSecuencial)) {
+                Directory.CreateDirectory(destinoSecuencial);
+            }
+
+            borrarArchivos(destinoParalelo);
+            borrarArchivos(destinoSecuencial);
+        }
+
+        private void borrarArchivos(string directorio) { 
+            var archivos = Directory.EnumerateFiles(directorio);
+
+            foreach (var archivo in archivos) {
+                File.Delete(archivo);
+            }
+        }
+
+        private List<Imagen> obtenerImagenes() {
+            var imgs = new List<Imagen>();
+
+            for (int i = 0; i < 7; i++) {
+                imgs.Add(new Imagen() {
+                    Nombre = $"Mexico { i }.png",
+                    URL = "https://upload.wikimedia.org/wikipedia/commons/1/17/Flag_of_Mexico.png"
+                });
+
+                imgs.Add(new Imagen() {
+                    Nombre = $"Inglaterra { i }.png",
+                    URL = "https://upload.wikimedia.org/wikipedia/commons/c/c2/Flag_of_England.PNG"
+                });
+
+                /*imgs.Add(new Imagen() { 
+                    Nombre = $"Alemania { i }.svg",
+                    URL = "https://upload.wikimedia.org/wikipedia/commons/b/ba/Flag_of_Germany.svg"
+                });*/
+            }
+
+            return imgs;
         }
 
         private void Form1_Load(object sender, EventArgs e) {
