@@ -1,4 +1,5 @@
 using Concurrencia.Models;
+using Concurrencia.Utilidades;
 using System.Diagnostics;
 
 namespace Concurrencia {
@@ -31,7 +32,7 @@ namespace Concurrencia {
             var duracion = $"El programa se ejecutó en { sw.ElapsedMilliseconds / 1000.0 } segundos.";
             Console.WriteLine($"{ duracion }"); */
 
-            var directorioactual = AppDomain.CurrentDomain.BaseDirectory;
+            /* var directorioactual = AppDomain.CurrentDomain.BaseDirectory;
             var destinoSecuencial = Path.Combine(directorioactual, @"Imagenes/secuencial");
             var destinoParalelo = Path.Combine(directorioactual, @"Imagenes/paralelo");
 
@@ -40,7 +41,7 @@ namespace Concurrencia {
             Console.WriteLine("Inicio");
             var imgs = obtenerImagenes();
 
-            /* Parte Secuencial */
+            // Parte Secuencial
             Stopwatch sw = new Stopwatch();
             sw.Start();
 
@@ -52,7 +53,7 @@ namespace Concurrencia {
 
             sw.Reset();
 
-            /* Parte Paralelo */
+            // Parte Paralelo
             sw.Start();
 
             var tareasEnumerable = imgs.Select(async img => {
@@ -63,7 +64,42 @@ namespace Concurrencia {
 
             sw.Stop();
 
-            Console.WriteLine($"Duración Paralelo: { sw.ElapsedMilliseconds / 1000.0 } segundos");
+            Console.WriteLine($"Duración Paralelo: { sw.ElapsedMilliseconds / 1000.0 } segundos"); */
+
+            // Parallel.For
+            int conteoColumnas = 1080;
+            int conteoFilas = 1000;
+            int conteoColumnas2 = 750;
+
+            double[,] m1 = Matriz.InicializarMatriz(conteoFilas, conteoColumnas);
+            double[,] m2 = Matriz.InicializarMatriz(conteoColumnas, conteoColumnas2);
+            double[,] resultado = new double[conteoFilas, conteoColumnas2];
+
+            Console.WriteLine("Ejecutando versión secuencial");
+
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
+            await Task.Run(() => {
+                Matriz.MultiplicarMatricesSecuencial(m1, m2, resultado);
+            });
+
+            sw.Stop();
+            Console.WriteLine("Duración en segundos de la versión secuencial: {0}", sw.ElapsedMilliseconds / 1000.0);
+
+            resultado = new double[conteoFilas, conteoColumnas2];
+
+            Console.WriteLine("Ejecutando la versión en paralelo");
+            sw.Reset();
+            sw.Start();
+
+            await Task.Run(() => {
+                Matriz.MultiplicarMatricesParalelo(m1, m2, resultado);
+            });
+
+            sw.Stop();
+            Console.WriteLine("Duración en segundos de la versión en paralelo: {0}", sw.ElapsedMilliseconds / 1000.0);
+
             pictureBox1.Visible = false;
         }
 
@@ -117,11 +153,6 @@ namespace Concurrencia {
                     Nombre = $"Inglaterra { i }.png",
                     URL = "https://upload.wikimedia.org/wikipedia/commons/c/c2/Flag_of_England.PNG"
                 });
-
-                /*imgs.Add(new Imagen() { 
-                    Nombre = $"Alemania { i }.svg",
-                    URL = "https://upload.wikimedia.org/wikipedia/commons/b/ba/Flag_of_Germany.svg"
-                });*/
             }
 
             return imgs;
